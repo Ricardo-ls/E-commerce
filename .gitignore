@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+data/
+logs/
+last_launch_url.txt
+.DS_Store
