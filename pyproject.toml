@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ecommerce-batch-recommendation-ui-demo"
+version = "0.1.0"
+description = "A governed e-commerce batch recommendation demo with UI, approval gating, and audit trails."
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["."]
+python_files = ["test_*.py"]
+
+[tool.setuptools]
+py-modules = [
+  "app_ecommerce_recommendation_ui",
+  "tools_ecommerce_recommendation",
+  "demo_ecommerce_recommendation_flow",
+]

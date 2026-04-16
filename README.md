@@ -1,284 +1,441 @@
-# Governed E-commerce Batch Recommendation Demo
+# E-commerce
 
-这是一个围绕“电商夜间批量推荐”场景搭建的本地可演示原型。项目重点不是模型精度，而是把一条**可治理、可审计、可留痕、带审批门禁、带环境隔离**的 batch recommendation 执行链路完整展示出来。
+Minimal governed workflow demo for a nightly e-commerce batch recommendation release.
 
-它适合做下面这些事情：
+This repository is intentionally small. It is not a recommendation algorithm research project, not a multi-agent system, and not a full backend product. It is a lightweight local demo built to show one clear operational story:
 
-- 演示自然语言如何触发批量推荐流程
-- 演示 test / production 环境隔离
-- 演示用户可见发布前的审批门禁
-- 演示 JSON 审计记录与日志追踪
-- 演示一个能直接打开浏览器观看的本地 UI
+`Generate recommendations -> Preview results -> Request publish -> Approve publish -> Audit trail`
 
-## 项目核心目标
+The goal is to make that story easy to explain in a classroom, PPT, portfolio, or live walkthrough.
 
-这个 demo 想表达的不是“推荐分数多高”，而是下面这一整套治理化执行链路：
+## 1. Project Positioning
 
-1. 自然语言输入
-2. 意图识别
-3. 工具选择
-4. 分阶段执行
-5. 用户可见发布前审批
-6. test / production 环境隔离
-7. 审计记录落盘
-8. 日志追踪
-9. UI 可展示监控摘要、审批队列和样例推荐结果
+This project has been deliberately narrowed into a **minimum demo for governed batch recommendation delivery**.
 
-## 业务背景
+It focuses on:
 
-场景设定为一个大规模电商平台的夜间低峰批量推荐流程：
+- a single nightly batch snapshot
+- a simple publish gate
+- explicit human approval before release
+- local auditability
+- stable demo behavior with minimal setup
 
-1. 平台在夜间收集大量用户行为数据
-2. 对数据进行校验、匿名化和最小化处理
-3. 调用训练好的推荐模型执行 batch inference
-4. 生成推荐结果快照并存储
-5. 面向首页、视频流等用户可见 surface 的发布不是自动上线，而是进入审批门禁
-6. 人工批准后才完成用户可见发布
-7. 全过程保留审计记录、日志和监控摘要
+It does **not** focus on:
 
-## 项目结构
+- online serving infrastructure
+- recommendation model training
+- offline evaluation pipelines
+- complex approval queues
+- fairness dashboards
+- natural language orchestration
+- multi-environment platform management
 
-- `app_ecommerce_recommendation_ui.py`
-  - 主程序
-  - 本地 HTTP 服务
-  - HTML UI
-  - 前端交互逻辑
-  - 后端 API
-  - 自然语言分类
-  - 审批机制
-  - dashboard state 聚合
-  - 自动 seed 测试数据
+If you need a one-sentence description for presentation use, this is the intended version:
 
-- `tools_ecommerce_recommendation.py`
-  - 工具注册表
-  - 各阶段工具函数定义
-  - 推荐、存储、发布、审计等阶段的业务返回值
+> A minimal Python demo that shows how a nightly e-commerce recommendation batch can be generated, reviewed, approved, published, and audited through a simple governed workflow.
 
-- `test_ecommerce_recommendation_demo.py`
-  - 演示测试
-  - 验证 seed 后 dashboard 是否非空
-  - 验证推荐样例是否可展示
-  - 验证 inference 结果字段是否满足 dashboard 聚合
+## 2. Demo Story
 
-- `demo_ecommerce_recommendation_flow.py`
-  - CLI 方式跑一遍完整 demo
+The entire product story is one small closed loop:
 
-- `start_ui_demo.sh`
-  - 一键启动 UI
+1. Generate a nightly recommendation batch
+2. Preview a few sample recommendation rows
+3. Request publish
+4. Require explicit approval before release
+5. Record every action in an audit trail
 
-## 当前 pipeline 阶段
+That is the whole demo.
 
-项目把推荐流程拆成了多个 stage：
+The point is not to prove recommendation quality. The point is to demonstrate **governance logic around model output**.
 
-1. `collect_behavior_batch`
-   - 收集夜间行为批次
+## 3. What the UI Shows
 
-2. `validate_and_prepare_batch`
-   - 做数据校验、匿名化、最小化处理等准备工作
+The interface is intentionally reduced to four areas:
 
-3. `run_batch_inference`
-   - 执行推荐批量推理
-   - 输出监控摘要字段，例如：
-     - `estimated_users_scored`
-     - `manual_review_queue`
-     - `fairness_monitor`
-     - `model_version`
+### Batch Summary
 
-4. `store_recommendation_snapshot`
-   - 将推荐结果快照存入目标存储
+Shows the current batch snapshot at a glance:
 
-5. `publish_recommendation_snapshot`
-   - 用户可见发布阶段
-   - 先进入 `blocked_pending_approval`
-   - 生成 `pending release`
-   - 等待人工批准后才真正执行
+- batch date
+- model version
+- number of users covered
+- current publish status
 
-6. `inspect_audit_summary`
-   - 查看审计摘要
+### Recommendation Preview
 
-## UI 功能
+Shows a few deterministic example recommendation rows so the audience sees concrete output, not just abstract pipeline states.
 
-打开页面后，你会看到以下内容：
+Each row includes:
 
-- 顶部环境选择：`test` / `production`
-- 顶部操作按钮：
-  - `Generate Test Data`
-  - `Run Full Nightly Job`
-  - `Refresh State`
-- 指标卡片：
-  - Recent records
-  - Pending approvals
-  - Latest users scored
-  - Manual review queue
-- Natural-language command center
-- Pending release approvals
-- Monitoring summary
-- Recent audit artifacts
-- Recent log tail
-- Latest recommendation preview
+- user id
+- item id
+- placement slot
+- score
+- short reason
 
-其中 `Latest recommendation preview` 是为了让页面不只是展示抽象统计，还能直接看到几条样例推荐结果，方便演示。
+### Publish Control
 
-## 后端 API
+Shows the workflow gate and what the operator should do next.
 
-项目提供了几个简单的本地 API：
+Supported states:
 
-- `GET /`
-  - 返回 UI 页面
+- `draft`
+- `pending_approval`
+- `published`
 
-- `GET /api/state?environment=test|production`
-  - 返回 dashboard state
-  - 包括：
-    - `pending_releases`
-    - `recent_records`
-    - `monitor_summary`
-    - `log_tail`
-    - `latest_snapshot_preview`
+### Audit Trail
 
-- `POST /api/run`
-  - 执行自然语言指令
+Shows the exact actions taken during the demo, in order.
 
-- `POST /api/approve`
-  - 批准某个 pending release
+Typical entries:
 
-- `POST /api/full_demo`
-  - 跑完整 nightly job demo
+- `generate_batch`
+- `request_publish`
+- `approve_publish`
 
-- `POST /api/seed`
-  - 强制生成测试数据
+## 4. Minimal State Model
 
-## 自然语言示例
+The backend keeps only three core state objects:
 
-系统会通过 `classify_instruction()` 把自然语言映射到不同阶段工具，例如：
+### `batch_snapshot`
 
-- `Collect nightly behavior batch for 2026-04-15`
-  - 对应 `collect_behavior_batch`
+Contains the generated recommendation batch metadata and preview rows.
 
-- `Validate and prepare batch for 2026-04-15`
-  - 对应 `validate_and_prepare_batch`
+Example fields:
 
-- `Run recommendation inference for 2026-04-15 with model v2.3`
-  - 对应 `run_batch_inference`
+- `batch_date`
+- `model_version`
+- `users_covered`
+- `items_ranked`
+- `preview`
+- `generated_at_utc`
 
-- `Store recommendation snapshot for 2026-04-15 with model v2.3`
-  - 对应 `store_recommendation_snapshot`
+### `publish_status`
 
-- `Publish recommendation snapshot for 2026-04-15 to homepage with model v2.3`
-  - 对应 `publish_recommendation_snapshot`
-  - 需要审批
+Represents the release gate:
 
-- `Inspect audit summary for 2026-04-15`
-  - 对应 `inspect_audit_summary`
+- `draft`
+- `pending_approval`
+- `published`
 
-## 数据与留痕
+### `audit_log`
 
-项目的数据和审计结果会落到本地文件系统：
+An append-only list of workflow events, each with:
 
-- `data/test/`
-- `data/production/`
-- `data/<env>/pending_releases/`
-- `logs/assistant.log`
+- UTC timestamp
+- action name
+- message
 
-每个阶段都会写 JSON artifact，避免只停留在内存里。
+This is enough to make the demo understandable while still preserving governance traceability.
 
-另外，记录文件名使用带微秒的时间戳，避免同一秒多阶段执行时互相覆盖。
+## 5. Why This Repo Is Useful
 
-## 测试流程
+This repository is helpful when you want to demonstrate:
 
-项目已经补了一套能直接演示的测试，建议这样看：
+- model outputs should not immediately become user-facing releases
+- publishing should pass through an explicit gate
+- human approval can be part of a simple ML workflow
+- audit trails matter even in small systems
+- governance concepts can be shown without building a full platform
 
-```bash
-python3 -m unittest -v test_ecommerce_recommendation_demo.py
+It is especially suitable for:
+
+- classroom demos
+- portfolio projects
+- architecture walkthroughs
+- AI governance presentations
+- product design discussion for ML operations
+
+## 6. Tech Stack
+
+The project intentionally stays lightweight:
+
+- Python 3.10+
+- built-in `http.server`
+- local JSON file storage
+- local log file
+- plain HTML, CSS, and JavaScript embedded in the Python app
+- `unittest` for validation
+
+No database is required.
+
+No frontend framework is required.
+
+No external service is required.
+
+## 7. Repository Structure
+
+```text
+.
+├── app_ecommerce_recommendation_ui.py
+├── tools_ecommerce_recommendation.py
+├── demo_ecommerce_recommendation_flow.py
+├── test_ecommerce_recommendation_demo.py
+├── start_ui_demo.sh
+├── Launch Demo.command
+├── pyproject.toml
+├── data/
+└── logs/
 ```
 
-测试覆盖了：
+### File roles
 
-- `force_seed_demo_content("test")` 后 dashboard 是否非空
-- `run_batch_inference` 的结果是否包含 dashboard 需要的字段
-- 推荐预览是否能从最新推理结果中构造出来
-- 空环境是否能被自动补种
+`app_ecommerce_recommendation_ui.py`
 
-## 启动方式
+- main application entry point
+- local HTTP server
+- embedded demo UI
+- state transitions
+- API handlers
+- state persistence
 
-### 方式 1：一键启动 UI
+`tools_ecommerce_recommendation.py`
+
+- deterministic batch snapshot generator
+- sample preview row generation
+
+`demo_ecommerce_recommendation_flow.py`
+
+- runs the full minimal demo flow in CLI mode
+
+`test_ecommerce_recommendation_demo.py`
+
+- validates the minimum workflow behavior
+
+`start_ui_demo.sh`
+
+- starts the local demo quickly from the repository root
+
+`Launch Demo.command`
+
+- macOS-friendly launcher that delegates to the shell script
+
+`pyproject.toml`
+
+- minimal project metadata
+
+## 8. Installation
+
+Clone the repository:
 
 ```bash
-./start_ui_demo.sh
+git clone https://github.com/Ricardo-ls/E-commerce.git
+cd E-commerce
 ```
 
-这个脚本会先 seed 一份 `test` 环境数据，然后启动本地 UI。
+Check your Python version:
 
-### 方式 2：直接启动主程序
+```bash
+python3 --version
+```
+
+Recommended:
+
+- Python 3.10 or newer
+
+This demo uses only the standard library in its main runtime path, so there is no heavy dependency installation step.
+
+## 9. How to Run the UI
+
+Start the application:
 
 ```bash
 python3 app_ecommerce_recommendation_ui.py
 ```
 
-### 方式 3：CLI 演示
+Or use the helper script:
 
 ```bash
-python3 app_ecommerce_recommendation_ui.py "Run recommendation inference for 2026-04-15 with model v2.3" --environment test
-python3 app_ecommerce_recommendation_ui.py "Publish recommendation snapshot for 2026-04-15 to homepage with model v2.3" --environment test
-python3 app_ecommerce_recommendation_ui.py --approve <release_id>
-python3 app_ecommerce_recommendation_ui.py --demo --environment test
-python3 app_ecommerce_recommendation_ui.py --seed --environment test
+./start_ui_demo.sh
 ```
 
-## 演示建议
+On macOS, you can also launch:
 
-如果你要现场讲这个项目，我建议按下面顺序：
+```bash
+./Launch\ Demo.command
+```
 
-1. 打开 UI
-2. 切到 `test`
-3. 点击 `Generate Test Data`
-4. 观察：
-   - recent records
-   - pending approvals
-   - monitoring summary
-   - log tail
-   - latest recommendation preview
-5. 再点 `Run Full Nightly Job`
-6. 进入 `Pending release approvals`
-7. 点击 `Approve publish`
-8. 展示审批后的 `latest publication status`
+The app starts a local server and opens the browser automatically unless disabled.
 
-## 这个项目和普通推荐 demo 的区别
+## 10. How to Use the Demo
 
-普通推荐 demo 往往只展示模型输出或一个结果表。
+The intended click path is:
 
-这个项目更强调的是：
+1. Click `Generate Batch`
+2. Look at `Batch Summary`
+3. Look at `Recommendation Preview`
+4. Click `Request Publish`
+5. Observe the status change to `pending_approval`
+6. Click `Approve Publish`
+7. Observe the status change to `published`
+8. Show the `Audit Trail`
 
-- 执行链路是分阶段的
-- 用户可见发布必须经过审批
-- test / production 严格隔离
-- 每个动作都留下可审计痕迹
-- UI 不只是展示结果，也展示治理过程
+This click path is the main deliverable of the repository.
 
-如果你想把它讲成一句话，可以这样说：
+## 11. CLI Workflow
 
-> 这是一个面向电商夜间批量推荐场景的 governed batch inference demo，重点展示自然语言控制、审批门禁、环境隔离、审计留痕和可视化监控。
+You can also run the state transitions from the command line.
 
-## 本地目录说明
+Reset the state:
 
-- `data/test/`
-  - 测试环境 JSON 记录
+```bash
+python3 app_ecommerce_recommendation_ui.py --reset
+```
 
-- `data/production/`
-  - 生产环境 JSON 记录
+Generate a batch:
 
-- `data/<env>/pending_releases/`
-  - 待审批发布项
+```bash
+python3 app_ecommerce_recommendation_ui.py --generate
+```
 
-- `logs/assistant.log`
-  - 运行日志
+Request publish:
 
-## 备注
+```bash
+python3 app_ecommerce_recommendation_ui.py --request-publish
+```
 
-这个项目保持了比较轻量的实现方式：
+Approve publish:
 
-- 后端使用 Python 标准库
-- UI 通过内嵌 HTML/JS 提供
-- 数据通过文件系统落盘
-- 审计通过 JSON artifact 留痕
+```bash
+python3 app_ecommerce_recommendation_ui.py --approve-publish
+```
 
-所以它适合本地演示、架构展示和治理链路说明，不适合直接当作生产系统模板照搬。
+Run the full minimal flow:
+
+```bash
+python3 demo_ecommerce_recommendation_flow.py
+```
+
+## 12. API Endpoints
+
+The app exposes a very small local API:
+
+### `GET /api/state`
+
+Returns the full current demo state.
+
+### `POST /api/generate`
+
+Creates a fresh recommendation batch snapshot and resets the publish status to `draft`.
+
+### `POST /api/request_publish`
+
+Moves the current batch from `draft` to `pending_approval`.
+
+### `POST /api/approve_publish`
+
+Moves the current batch from `pending_approval` to `published`.
+
+### `POST /api/reset`
+
+Resets the stored demo state back to its empty initial value.
+
+## 13. Local Persistence
+
+This project intentionally uses local files instead of a database.
+
+### State file
+
+The current workflow state is stored in:
+
+```text
+data/demo_state.json
+```
+
+This file contains:
+
+- current batch snapshot
+- current publish status
+- audit log history
+
+### Log file
+
+Application logs are written to:
+
+```text
+logs/assistant.log
+```
+
+This keeps the project simple while still showing traceability.
+
+## 14. Testing
+
+Run the tests with:
+
+```bash
+python3 -m unittest -v test_ecommerce_recommendation_demo.py
+```
+
+The tests cover the minimum viable governance chain:
+
+- batch generation creates a snapshot
+- publish request moves state to `pending_approval`
+- approval moves state to `published`
+- invalid action order is rejected
+- state persists to local JSON
+
+The test suite is intentionally small because the project goal is clarity, not exhaustive platform simulation.
+
+## 15. Presentation Notes
+
+If you are using this repository in a presentation, the recommended explanation order is:
+
+1. Start with the problem: recommendation outputs should not directly go live
+2. Show the generated batch
+3. Show a few preview rows
+4. Show that publish requires a separate action
+5. Show that approval is explicit
+6. End on the audit trail
+
+That framing helps the audience understand this as a **governed release workflow**, not just a UI mockup.
+
+## 16. Design Principles Behind This Version
+
+This repository was intentionally simplified under the following constraints:
+
+- keep the project lightweight
+- use local Python services
+- avoid heavy frameworks
+- keep storage file-based
+- retain audit logging
+- prioritize stable demos over advanced architecture
+- prefer a clear story over a large feature list
+
+In other words, this version optimizes for comprehension and repeatability.
+
+## 17. Example Success Criteria
+
+This demo is successful when:
+
+- someone can run it locally in minutes
+- the main workflow is understandable without explanation-heavy setup
+- the UI clearly shows the governance gate
+- the audit trail makes the release history visible
+- the project feels intentionally scoped rather than unfinished
+
+## 18. Future Extensions
+
+These are possible future extensions, but they are intentionally out of scope for the current version:
+
+- multi-environment support
+- richer approval roles
+- multiple batch history views
+- recommendation quality metrics
+- richer monitoring panels
+- exportable audit reports
+- real database-backed persistence
+- separate frontend/backend deployment
+
+For the current repository, keeping those ideas out is part of the design discipline.
+
+## 19. License and Usage
+
+Use this repository as a learning demo, presentation artifact, or prototype starting point.
+
+If you extend it, the clearest path is usually to preserve the core workflow first and only then add surrounding capabilities.
+
+---
+
+If you want to explain the repository in one line on GitHub, use:
+
+**Minimal governed workflow demo for nightly e-commerce batch recommendation publishing.**
