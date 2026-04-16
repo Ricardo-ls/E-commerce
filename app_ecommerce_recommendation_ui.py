@@ -148,15 +148,6 @@ INDEX_HTML = """<!DOCTYPE html>
       color: var(--muted);
       font-size: 14px;
     }
-    pre {
-      margin: 0;
-      white-space: pre-wrap;
-      word-break: break-word;
-      font-size: 13px;
-    }
-    .full {
-      grid-column: 1 / -1;
-    }
     @media (max-width: 860px) {
       .grid, .summary-grid, .control-grid {
         grid-template-columns: 1fr;
@@ -229,11 +220,6 @@ INDEX_HTML = """<!DOCTYPE html>
         <h2>Audit Trail</h2>
         <div id="audit-list" class="list"></div>
       </section>
-
-      <section class="panel full">
-        <h2>Current State JSON</h2>
-        <pre id="state-json">{}</pre>
-      </section>
     </div>
   </div>
 
@@ -252,6 +238,21 @@ INDEX_HTML = """<!DOCTYPE html>
 
     function setStatus(text) {
       document.getElementById("status").textContent = text;
+    }
+
+    function formatRomeTime(timestampUtc) {
+      const date = new Date(timestampUtc);
+      const formatter = new Intl.DateTimeFormat("en-GB", {
+        timeZone: "Europe/Rome",
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+        timeZoneName: "short",
+      });
+      return formatter.format(date).replace(",", "");
     }
 
     function renderPreview(rows) {
@@ -285,7 +286,7 @@ INDEX_HTML = """<!DOCTYPE html>
         div.className = "item";
         div.innerHTML = `
           <strong>${entry.action}</strong>
-          <div>${entry.timestamp_utc}</div>
+          <div>${formatRomeTime(entry.timestamp_utc)}</div>
           <div class="hint">${entry.message}</div>
         `;
         root.appendChild(div);
@@ -307,7 +308,6 @@ INDEX_HTML = """<!DOCTYPE html>
       document.getElementById("next-action").textContent = nextAction[state.publish_status] || "-";
       renderPreview(snapshot.preview || []);
       renderAudit(state.audit_log || []);
-      document.getElementById("state-json").textContent = JSON.stringify(state, null, 2);
     }
 
     async function refreshState() {
